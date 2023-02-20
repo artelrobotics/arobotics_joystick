@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="arobotics_joystick" type="joy_to_robot.py" name="gamepad" output="screen" >
+        <rosparam command="load" file="$(find arobotics_joystick)/config/gamepad.yaml" />
+    </node>
+</launch>
