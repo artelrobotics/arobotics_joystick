@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import rospy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Joy
+from actionlib_msgs.msg import GoalID
 
 @dataclass
 class Layout:
@@ -33,16 +34,15 @@ class JoyToRobot:
         self.joystick_layout = Layout()
         self.can_publish = True
         self.is_stop_published = False
-        if rospy.has_param("~inputs"):
-            self._inputs = rospy.get_param("~inputs")
-        if rospy.has_param("~scales"):
-            self._scales = rospy.get_param("~scales")
+        self._inputs = rospy.get_param("~inputs", default={'linear': {'x': 'AXES_LEFT_Y'}, 'angular': {'z': 'AXES_RIGHT_X'}})
+        self._scales = rospy.get_param("~scales", default={"linear": {"x": 1.0}, "angular": {"z": 2.0}})
         if rospy.has_param("~layout"):
             for key, value in rospy.get_param("~layout").items():
                 self.joystick_layout.__setattr__(key, value)
         self.max_speed = rospy.get_param("~max_speed", default=1.2)
         self.min_speed = rospy.get_param("~min_speed", default=0.1)
         self.vel_increment = rospy.get_param("~vel_increment", default=0.1)
+        self.enable_goal_cancel = rospy.get_param("~enable_goal_cancel", default=False)
         self.last_states = {key:1 for key in self.joystick_layout.__dict__.keys() if "BUTTON" in key}
         self.joy_attrs = []
         for attr in Joy.__slots__:
@@ -51,6 +51,8 @@ class JoyToRobot:
         self._pub = rospy.Publisher("cmd_vel", Twist, queue_size=1)
         self.speed = self.vel_increment
         rospy.Subscriber("joy", Joy, self.joystick_callback, queue_size=1)
+        if self.enable_goal_cancel:
+            self._pub_goal_cancel = rospy.Publisher("move_base/cancel", GoalID, queue_size=1)
 
     def speedup(self):
         if self.speed <= self.max_speed - self.vel_increment and self.can_publish:
@@ -86,6 +88,13 @@ class JoyToRobot:
         if buttons[self.joystick_layout.BUTTON_SELECT] and not self.last_states["BUTTON_SELECT"]:
             self.can_publish = False
         self.last_states["BUTTON_SELECT"] = buttons[self.joystick_layout.BUTTON_SELECT]
+
+        if self.enable_goal_cancel:
+            gc_msg = GoalID()
+            if buttons[self.joystick_layout.BUTTON_CROSS] and not self.last_states["BUTTON_CROSS"]:
+                self._pub_goal_cancel.publish(gc_msg)
+            self.last_states["BUTTON_CROSS"] = buttons[self.joystick_layout.BUTTON_CROSS]
+
         if self.can_publish:
             self._pub.publish(msg_to_pub)
             self.rate.sleep()
