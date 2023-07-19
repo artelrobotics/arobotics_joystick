@@ -32,7 +32,7 @@ class JoyToRobot:
         self._hz = rospy.get_param("~frequency", default=20)
         self.rate = rospy.Rate(self._hz)
         self.joystick_layout = Layout()
-        self.can_publish = True
+        self.can_publish = False
         self.is_stop_published = False
         self._inputs = rospy.get_param("~inputs", default={'linear': {'x': 'AXES_LEFT_Y'}, 'angular': {'z': 'AXES_RIGHT_X'}})
         self._scales = rospy.get_param("~scales", default={"linear": {"x": 1.0}, "angular": {"z": 2.0}})
