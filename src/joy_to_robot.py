@@ -27,7 +27,7 @@ class Layout:
 class DynamicClassLoader:
     def __init__(self):
         # Get parameters from rospy
-        param_config = rospy.get_param("~class_params", [])
+        param_config = rospy.get_param("~plugins", [])
         rospy.loginfo(param_config)
         # Load classes dynamically
         self.loaded_classes = []

@@ -31,3 +31,10 @@ layout:
   BUTTON_R3:       11
   AXES_ARROW_LEFT_RIGHT: 4
   AXES_ARROW_UP_DOWN:    5
+
+
+plugins:
+  - 'joy_cmd_vel/CmdVel'
+  - 'joy_cancel_goal/CancelGoal'
+  - 'joy_emergency_stop/EmergencyStop'
+  - 'joy_hook_control/HookControl'
