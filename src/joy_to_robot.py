@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 from dataclasses import dataclass
 import rospy
-from geometry_msgs.msg import Twist
-from sensor_msgs.msg import Joy
-from actionlib_msgs.msg import GoalID
+import importlib
 
 @dataclass
 class Layout:
@@ -26,87 +24,27 @@ class Layout:
     AXES_ARROW_LEFT_RIGHT: int = 4
     AXES_ARROW_UP_DOWN:    int = 5
 
-
-class JoyToRobot:
+class DynamicClassLoader:
     def __init__(self):
-        self._hz = rospy.get_param("~frequency", default=20)
-        self.rate = rospy.Rate(self._hz)
-        self.joystick_layout = Layout()
-        self.can_publish = False
-        self.is_stop_published = False
-        self._inputs = rospy.get_param("~inputs", default={'linear': {'x': 'AXES_LEFT_Y'}, 'angular': {'z': 'AXES_RIGHT_X'}})
-        self._scales = rospy.get_param("~scales", default={"linear": {"x": 1.0}, "angular": {"z": 2.0}})
-        if rospy.has_param("~layout"):
-            for key, value in rospy.get_param("~layout").items():
-                self.joystick_layout.__setattr__(key, value)
-        self.max_speed = rospy.get_param("~max_speed", default=1.2)
-        self.min_speed = rospy.get_param("~min_speed", default=0.1)
-        self.vel_increment = rospy.get_param("~vel_increment", default=0.1)
-        self.enable_goal_cancel = rospy.get_param("~enable_goal_cancel", default=False)
-        self.last_states = {key:1 for key in self.joystick_layout.__dict__.keys() if "BUTTON" in key}
-        self.joy_attrs = []
-        for attr in Joy.__slots__:
-            if attr.startswith("axes") or attr.startswith("buttons"):
-                self.joy_attrs.append(attr)
-        self._pub = rospy.Publisher("cmd_vel", Twist, queue_size=1)
-        self.speed = self.vel_increment
-        rospy.Subscriber("joy", Joy, self.joystick_callback, queue_size=1)
-        if self.enable_goal_cancel:
-            self._pub_goal_cancel = rospy.Publisher("move_base/cancel", GoalID, queue_size=1)
+        # Get parameters from rospy
+        param_config = rospy.get_param("~class_params", [])
+        rospy.loginfo(param_config)
+        # Load classes dynamically
+        self.loaded_classes = []
+        for class_spec in param_config:
+            # Parse the class specification
+            file_path, class_name = class_spec.split('/')
 
-    def speedup(self):
-        if self.speed <= self.max_speed - self.vel_increment and self.can_publish:
-            self.speed += self.vel_increment
-    def speeddown(self):
-        if self.speed >= self.min_speed + self.vel_increment and self.can_publish:
-            self.speed -= self.vel_increment
+            # Dynamic import using importlib
+            module = importlib.import_module(file_path)
+            class_ = getattr(module, class_name)
 
-    def joystick_callback(self, joy_msg):
-        joystick_input_vals = {}
-        for attr in self.joy_attrs:
-            joystick_input_vals[attr] = getattr(joy_msg, attr)
-        buttons =  joystick_input_vals.get("buttons")
-        if buttons[self.joystick_layout.BUTTON_R2] and not self.last_states["BUTTON_R2"]:
-            self.speedup()
-        if buttons[self.joystick_layout.BUTTON_L2] and not self.last_states["BUTTON_L2"]:
-            self.speeddown()
-        self.last_states["BUTTON_L2"] = buttons[self.joystick_layout.BUTTON_L2]
-        self.last_states["BUTTON_R2"] = buttons[self.joystick_layout.BUTTON_R2]
-        msg_to_pub = Twist()
-        stop_msg = Twist()
-        for vel_type in self._inputs:
-            vel_vec = getattr(msg_to_pub, vel_type)
-            for cordinate, layout in self._inputs[vel_type].items():
-                scale = self._scales[vel_type].get(cordinate, 1.0)
-                axes = joystick_input_vals.get("axes")
-                val = axes[self.joystick_layout.__getattribute__(layout)]
-                setattr(vel_vec, cordinate, scale * self.speed * val)
-        if buttons[self.joystick_layout.BUTTON_START] and not self.last_states["BUTTON_START"]:
-            self.can_publish = True
-            self.is_stop_published = False
-        self.last_states["BUTTON_START"] = buttons[self.joystick_layout.BUTTON_START]
-        if buttons[self.joystick_layout.BUTTON_SELECT] and not self.last_states["BUTTON_SELECT"]:
-            self.can_publish = False
-        self.last_states["BUTTON_SELECT"] = buttons[self.joystick_layout.BUTTON_SELECT]
+            # Instantiate the class and store it
+            instance = class_()
+            self.loaded_classes.append(instance)
 
-        if self.enable_goal_cancel:
-            gc_msg = GoalID()
-            if buttons[self.joystick_layout.BUTTON_CROSS] and not self.last_states["BUTTON_CROSS"]:
-                self._pub_goal_cancel.publish(gc_msg)
-            self.last_states["BUTTON_CROSS"] = buttons[self.joystick_layout.BUTTON_CROSS]
-
-        if self.can_publish:
-            self._pub.publish(msg_to_pub)
-            self.rate.sleep()
-        else:
-            if not self.is_stop_published:
-                self._pub.publish(stop_msg)
-                self.is_stop_published = True
-
-def main():
-    rospy.init_node("arobotics_joystick")
-    JoyToRobot()
-    rospy.spin()
 
 if __name__ == "__main__":
-    main()
+    rospy.init_node("arobotics_joystick")
+    loader = DynamicClassLoader()
+    rospy.spin()
