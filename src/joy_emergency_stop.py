@@ -10,7 +10,7 @@ class EmergencyStop:
         rospy.loginfo("Joystick CmdVel Intitializing")
         self._hz = rospy.get_param("~frequency", default=20)
         self.rate = rospy.Rate(self._hz)
-        self.service_name = rospy.get_param("~service_name", default="driver/emergency_stop_service")
+        self.service_name = rospy.get_param("~emergency_stop/service_name", default="driver/emergency_stop_service")
         self.joystick_layout = Layout()
         if rospy.has_param("~layout"):
             for key, value in rospy.get_param("~layout").items():

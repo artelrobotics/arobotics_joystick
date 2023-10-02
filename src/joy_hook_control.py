@@ -10,7 +10,7 @@ class HookControl:
         rospy.loginfo("Joystick HookControl Intitializing")
         self._hz = rospy.get_param("~frequency", default=20)
         self.rate = rospy.Rate(self._hz)
-        self.service_name = rospy.get_param("~service_name", default="hooks_ctrl")
+        self.service_name = rospy.get_param("~hooks/service_name", default="hooks_ctrl")
         self.joystick_layout = Layout()
         if rospy.has_param("~layout"):
             for key, value in rospy.get_param("~layout").items():
