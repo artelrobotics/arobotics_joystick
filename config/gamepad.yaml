@@ -38,3 +38,4 @@ plugins:
   - 'joy_cancel_goal/CancelGoal'
   - 'joy_emergency_stop/EmergencyStop'
   - 'joy_hook_control/HookControl'
+  - 'joy_docking_client/DockingClient'
